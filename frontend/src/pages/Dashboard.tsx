@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Grid, Paper, Breadcrumbs, Link } from '@mui/material';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import type { DropResult, DroppableProvided, DraggableProvided } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import type { DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import MetricCard from '../components/MetricCard';
 import PerformanceChart from '../components/PerformanceChart';
 import AlertsPanel from '../components/AlertsPanel';

@@ -1,4 +1,4 @@
-declare module 'react-beautiful-dnd' {
+declare module '@hello-pangea/dnd' {
   import * as React from 'react';
 
   export interface DraggableLocation {
@@ -35,6 +35,8 @@ declare module 'react-beautiful-dnd' {
 
   export interface DragDropContextProps {
     onDragEnd: (result: DropResult) => void;
+    onDragStart?: (initial: DropResult) => void;
+    onDragUpdate?: (update: DropResult) => void;
     children: React.ReactNode;
   }
 
