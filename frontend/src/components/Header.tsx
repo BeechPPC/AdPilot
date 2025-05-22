@@ -5,19 +5,19 @@ import {
   Typography,
   IconButton,
   Box,
+  Button,
   Menu,
   MenuItem,
   Avatar,
-  Select,
-  FormControl,
-  InputLabel,
-  Tooltip,
-  IconButton as MuiIconButton,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   Menu as MenuIcon,
+  Notifications as NotificationsIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
+  AccountCircle
 } from '@mui/icons-material';
 
 interface HeaderProps {
