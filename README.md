@@ -1,92 +1,85 @@
-# AdPilot
+# AdPilot - AI-Powered Google Ads Management
 
-AdPilot is an intelligent Google Ads management platform that helps advertisers optimize their campaigns and make data-driven decisions. Available in two versions: Standard and Pro.
+AdPilot is a modern, AI-powered dashboard for managing Google Ads campaigns. It provides real-time insights, automated optimizations, and intelligent recommendations to help you maximize your advertising ROI.
 
-## Overview
+## Features
 
-AdPilot provides comprehensive tools for Google Ads account management, from basic monitoring to advanced AI-powered optimization. The platform is designed to save time, improve performance, and make smarter advertising decisions.
+### Current Features
+- 📊 Real-time performance metrics
+- 📈 Interactive performance charts
+- 🎯 Campaign performance tracking
+- 🔔 Smart alerts and notifications
+- 📱 Responsive design for all devices
+- 🌓 Dark/Light theme support
+- 🎨 Customizable dashboard layout
+- 📑 PDF report generation
 
-## Versions
-
-### AdPilot (Standard)
-- Comprehensive dashboard for account monitoring
-- Performance analysis tools
-- Budget management
-- Search term analysis
-- Basic automation and alerts
-- Standard reporting capabilities
-
-### AdPilot Pro
-All Standard features plus:
-- AI-powered account analysis
-- Autonomous optimization
-- Predictive analytics
-- Advanced budget management
-- Intelligent recommendations
-- Custom AI rules
-- Multi-account management
-- API access
-
-## Current Progress
-
-### Phase 1: Core Platform (In Progress)
-- [ ] Basic infrastructure setup
-- [ ] Frontend base implementation
-- [ ] Backend base implementation
-- [ ] Database structure
-- [ ] Common services integration
-
-### Phase 2: Standard Features (Planned)
-- [ ] Dashboard implementation
-- [ ] Performance analysis tools
-- [ ] Budget management system
-- [ ] Search term analysis
-- [ ] Basic automation
-- [ ] Standard reporting
-
-### Phase 3: Pro Features (Planned)
-- [ ] AI system integration
-- [ ] Advanced analytics
-- [ ] Autonomous operations
-- [ ] Custom rules engine
-- [ ] Pro API access
-
-## Technical Architecture
-
-### Frontend
-- React with TypeScript
-- Material-UI for components
-- Redux for state management
-- Chart.js for data visualization
-
-### Backend
-- Node.js with TypeScript
-- Express.js for API routing
-- PostgreSQL database
-- Redis for caching
-
-### AI System (Pro Only)
-- Agent-based architecture
-- Machine learning models
-- Decision engine
-- Learning system
+### Future Features
+- ⌨️ Keyboard shortcuts for power users
+- 🎯 Screen reader support
+- 🌈 High contrast mode
+- 🤖 Advanced AI-powered optimizations
+- 📊 Custom report builder
+- 🔄 Automated bid adjustments
+- 📈 Predictive analytics
+- 🎯 Smart recommendations
+- 🤖 Autonomous campaign optimization
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- PostgreSQL
-- Redis
-- Google Ads API access
+- Node.js 16.x or later
+- npm 7.x or later
 
 ### Installation
-(Installation instructions will be added as development progresses)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/adpilot.git
+cd adpilot
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm start
+```
+
+The application will be available at `http://localhost:3000`.
+
+## Project Structure
+
+```
+adpilot/
+├── frontend/              # React frontend application
+│   ├── src/
+│   │   ├── components/    # Reusable UI components
+│   │   ├── layouts/       # Layout components
+│   │   ├── pages/         # Page components
+│   │   ├── styles/        # Global styles and theme
+│   │   └── utils/         # Utility functions
+│   └── public/            # Static assets
+└── README.md             # Project documentation
+```
 
 ## Contributing
-(Contribution guidelines will be added as development progresses)
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
-(License information will be added as development progresses)
 
-## Contact
-(Contact information will be added as development progresses) 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Material-UI for the component library
+- Recharts for data visualization
+- React Beautiful DnD for drag-and-drop functionality 

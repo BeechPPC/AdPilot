@@ -1,25 +1,29 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useMemo } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { createAppTheme } from './styles/theme';
+import MainLayout from './layouts/MainLayout';
+import GoogleAdsConnect from './components/GoogleAdsConnect';
 
 function App() {
+  const [mode, setMode] = useState<'light' | 'dark'>('light');
+
+  const theme = useMemo(() => createAppTheme(mode), [mode]);
+
+  const toggleTheme = () => {
+    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <MainLayout onThemeToggle={toggleTheme} isDarkMode={mode === 'dark'}>
+          <GoogleAdsConnect />
+        </MainLayout>
+      </Router>
+    </ThemeProvider>
   );
 }
 
