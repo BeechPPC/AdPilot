@@ -10,7 +10,10 @@ import {
   MenuItem,
   Avatar,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  FormControl,
+  Select,
+  Tooltip
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -112,9 +115,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode 
         <Box sx={{ flexGrow: 1 }} />
 
         <Tooltip title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}>
-          <MuiIconButton onClick={onThemeToggle} color="inherit">
+          <IconButton onClick={onThemeToggle} color="inherit">
             {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
-          </MuiIconButton>
+          </IconButton>
         </Tooltip>
 
         <IconButton
