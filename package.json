@@ -6,6 +6,7 @@
     "frontend"
   ],
   "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"cd backend && npm run dev\" \"cd frontend && npm start\"",
     "start": "cd frontend && npm start",
     "build": "cd frontend && npm run build",
     "test": "cd frontend && npm test"
@@ -13,5 +14,8 @@
   "dependencies": {
     "@types/react-beautiful-dnd": "^13.1.8",
     "react-beautiful-dnd": "^13.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

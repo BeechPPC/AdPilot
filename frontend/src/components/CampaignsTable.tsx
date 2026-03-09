@@ -1,64 +1,38 @@
 import React from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Chip, Typography,
 } from '@mui/material';
+import { CAMPAIGN_STATUS, METRIC_INFO } from '../utils/friendlyNames';
+import MetricTooltip from './MetricTooltip';
 
 interface Campaign {
   id: string;
   name: string;
-  status: 'active' | 'paused';
-  spend: string;
-  impressions: string;
-  clicks: string;
-  conversions: string;
-  ctr: string;
-  cpc: string;
+  status: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  ctr: number;
+  cpc: number;
 }
 
-const campaigns: Campaign[] = [
-  {
-    id: '1',
-    name: 'Summer Sale 2024',
-    status: 'active',
-    spend: '$1,234',
-    impressions: '45.2K',
-    clicks: '2.1K',
-    conversions: '156',
-    ctr: '4.6%',
-    cpc: '$0.59',
-  },
-  {
-    id: '2',
-    name: 'Product Launch',
-    status: 'active',
-    spend: '$987',
-    impressions: '32.1K',
-    clicks: '1.5K',
-    conversions: '98',
-    ctr: '4.7%',
-    cpc: '$0.66',
-  },
-  {
-    id: '3',
-    name: 'Brand Awareness',
-    status: 'paused',
-    spend: '$756',
-    impressions: '28.4K',
-    clicks: '1.2K',
-    conversions: '45',
-    ctr: '4.2%',
-    cpc: '$0.63',
-  },
-];
+interface CampaignsTableProps {
+  campaigns?: Campaign[];
+}
 
-const CampaignsTable: React.FC = () => {
+const CampaignsTable: React.FC<CampaignsTableProps> = ({ campaigns }) => {
+  if (!campaigns || campaigns.length === 0) {
+    return (
+      <Paper sx={{ p: 3 }}>
+        <Typography color="text.secondary" align="center">
+          No campaign data yet. Connect your Google Ads account to see your campaigns.
+        </Typography>
+      </Paper>
+    );
+  }
+
   return (
     <TableContainer component={Paper}>
       <Table>
@@ -66,33 +40,27 @@ const CampaignsTable: React.FC = () => {
           <TableRow>
             <TableCell>Campaign</TableCell>
             <TableCell>Status</TableCell>
-            <TableCell align="right">Spend</TableCell>
-            <TableCell align="right">Impressions</TableCell>
-            <TableCell align="right">Clicks</TableCell>
-            <TableCell align="right">Conversions</TableCell>
-            <TableCell align="right">CTR</TableCell>
-            <TableCell align="right">CPC</TableCell>
+            <TableCell align="right">{METRIC_INFO.spend.label}</TableCell>
+            <TableCell align="right">{METRIC_INFO.clicks.label} <MetricTooltip metricKey="clicks" /></TableCell>
+            <TableCell align="right">{METRIC_INFO.conversions.label} <MetricTooltip metricKey="conversions" /></TableCell>
+            <TableCell align="right">{METRIC_INFO.ctr.label} <MetricTooltip metricKey="ctr" /></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {campaigns.map((campaign) => (
-            <TableRow key={campaign.id}>
-              <TableCell component="th" scope="row">
-                {campaign.name}
-              </TableCell>
+          {campaigns.map((c) => (
+            <TableRow key={c.id}>
+              <TableCell><Typography fontWeight={500}>{c.name}</Typography></TableCell>
               <TableCell>
                 <Chip
-                  label={campaign.status}
-                  color={campaign.status === 'active' ? 'success' : 'default'}
+                  label={CAMPAIGN_STATUS[c.status] || c.status}
+                  color={c.status === 'enabled' ? 'success' : 'default'}
                   size="small"
                 />
               </TableCell>
-              <TableCell align="right">{campaign.spend}</TableCell>
-              <TableCell align="right">{campaign.impressions}</TableCell>
-              <TableCell align="right">{campaign.clicks}</TableCell>
-              <TableCell align="right">{campaign.conversions}</TableCell>
-              <TableCell align="right">{campaign.ctr}</TableCell>
-              <TableCell align="right">{campaign.cpc}</TableCell>
+              <TableCell align="right">${c.spend.toFixed(2)}</TableCell>
+              <TableCell align="right">{c.clicks.toLocaleString()}</TableCell>
+              <TableCell align="right">{c.conversions}</TableCell>
+              <TableCell align="right">{c.ctr.toFixed(1)}%</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -101,4 +69,4 @@ const CampaignsTable: React.FC = () => {
   );
 };
 
-export default CampaignsTable; 
+export default CampaignsTable;

@@ -28,11 +28,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onThemeToggle, isDark
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${isSidebarOpen ? 240 : 0}px)` },
-          ml: { sm: isSidebarOpen ? '240px' : 0 },
+          ml: { md: isSidebarOpen ? '240px' : 0 },
           mt: '60px',
           mb: isMobile ? '56px' : 0,
-          transition: theme.transitions.create(['margin', 'width'], {
+          transition: theme.transitions.create('margin', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),

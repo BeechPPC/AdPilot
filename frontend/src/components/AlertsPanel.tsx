@@ -1,88 +1,91 @@
 import React from 'react';
 import {
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Typography,
-  Box,
+  Paper, Typography, List, ListItem, ListItemIcon, ListItemText,
+  Chip, Divider, Box,
 } from '@mui/material';
 import {
   Warning as WarningIcon,
-  Error as ErrorIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
+import { getFriendlyRecommendation } from '../utils/friendlyNames';
+
+interface Recommendation {
+  resourceName: string;
+  type: string;
+  campaign: string;
+  impactImpressions: number;
+  impactClicks: number;
+  impactCost: number;
+}
 
 interface Alert {
   id: string;
-  type: 'warning' | 'error' | 'info';
+  type: 'warning' | 'info';
+  label: string;
   message: string;
-  timestamp: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
-// Sample data - replace with real data from API
-const alerts: Alert[] = [
-  {
-    id: '1',
-    type: 'warning',
-    message: 'Campaign "Summer Sale" is approaching its daily budget limit',
-    timestamp: '2 hours ago',
-  },
-  {
-    id: '2',
-    type: 'error',
-    message: 'Ad group "Shoes" has low quality score',
-    timestamp: '4 hours ago',
-  },
-  {
-    id: '3',
-    type: 'info',
-    message: 'New optimization opportunities available',
-    timestamp: '1 day ago',
-  },
+interface AlertsPanelProps {
+  recommendations?: Recommendation[];
+}
+
+const fallbackAlerts: Alert[] = [
+  { id: '1', type: 'info', label: 'Get Started', message: 'Connect your Google Ads account to see suggestions here.', priority: 'low' },
 ];
 
-const AlertsPanel: React.FC = () => {
-  const getIcon = (type: Alert['type']) => {
-    switch (type) {
-      case 'warning':
-        return <WarningIcon color="warning" />;
-      case 'error':
-        return <ErrorIcon color="error" />;
-      case 'info':
-        return <InfoIcon color="info" />;
-    }
-  };
+function recsToAlerts(recs: Recommendation[]): Alert[] {
+  return recs.slice(0, 5).map((r, i) => {
+    const friendly = getFriendlyRecommendation(r.type);
+    return {
+      id: String(i),
+      type: r.impactCost > 100 ? 'warning' as const : 'info' as const,
+      label: friendly.label,
+      message: friendly.description,
+      priority: r.impactCost > 500 ? 'high' as const : r.impactCost > 100 ? 'medium' as const : 'low' as const,
+    };
+  });
+}
+
+const getPriorityColor = (priority: Alert['priority']) => {
+  switch (priority) {
+    case 'high': return 'error';
+    case 'medium': return 'warning';
+    case 'low': return 'info';
+    default: return 'default';
+  }
+};
+
+const AlertsPanel: React.FC<AlertsPanelProps> = ({ recommendations }) => {
+  const alerts = recommendations && recommendations.length > 0
+    ? recsToAlerts(recommendations)
+    : fallbackAlerts;
 
   return (
-    <List>
-      {alerts.map((alert) => (
-        <ListItem
-          key={alert.id}
-          sx={{
-            mb: 1,
-            borderRadius: 1,
-            bgcolor: 'background.paper',
-            '&:hover': {
-              bgcolor: 'action.hover',
-            },
-          }}
-        >
-          <ListItemIcon>{getIcon(alert.type)}</ListItemIcon>
-          <ListItemText
-            primary={alert.message}
-            secondary={
-              <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography variant="caption" color="text.secondary">
-                  {alert.timestamp}
-                </Typography>
-              </Box>
-            }
-          />
-        </ListItem>
-      ))}
-    </List>
+    <Paper sx={{ p: 2 }}>
+      <List>
+        {alerts.map((alert, index) => (
+          <React.Fragment key={alert.id}>
+            {index > 0 && <Divider />}
+            <ListItem alignItems="flex-start">
+              <ListItemIcon>
+                {alert.type === 'warning' ? <WarningIcon color="warning" /> : <InfoIcon color="info" />}
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip label={alert.label} size="small" color="primary" variant="outlined" />
+                    <Typography variant="body1">{alert.message}</Typography>
+                    <Chip label={alert.priority} size="small" color={getPriorityColor(alert.priority)} />
+                  </Box>
+                }
+              />
+            </ListItem>
+          </React.Fragment>
+        ))}
+      </List>
+    </Paper>
   );
 };
 
-export default AlertsPanel; 
+export default AlertsPanel;

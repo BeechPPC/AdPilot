@@ -1,17 +1,10 @@
 import React from 'react';
-import {
-  BottomNavigation,
-  BottomNavigationAction,
-  Paper,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
+import { BottomNavigation, BottomNavigationAction, Paper, useTheme, useMediaQuery } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
-  TrendingUp as TrendingUpIcon,
+  Campaign as CampaignIcon,
+  Star as StarIcon,
   Search as SearchIcon,
-  Image as ImageIcon,
-  Speed as SpeedIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -37,39 +30,16 @@ const MobileNavigation: React.FC = () => {
     >
       <BottomNavigation
         value={location.pathname}
-        onChange={(_, newValue) => {
-          navigate(newValue);
-        }}
+        onChange={(_, newValue) => navigate(newValue)}
         showLabels
       >
-        <BottomNavigationAction
-          label="Dashboard"
-          value="/"
-          icon={<DashboardIcon />}
-        />
-        <BottomNavigationAction
-          label="Performance"
-          value="/performance"
-          icon={<TrendingUpIcon />}
-        />
-        <BottomNavigationAction
-          label="Search"
-          value="/search-terms"
-          icon={<SearchIcon />}
-        />
-        <BottomNavigationAction
-          label="Assets"
-          value="/assets"
-          icon={<ImageIcon />}
-        />
-        <BottomNavigationAction
-          label="PMax"
-          value="/performance-max"
-          icon={<SpeedIcon />}
-        />
+        <BottomNavigationAction label="Dashboard" value="/" icon={<DashboardIcon />} />
+        <BottomNavigationAction label="Campaigns" value="/campaigns" icon={<CampaignIcon />} />
+        <BottomNavigationAction label="Suggestions" value="/recommendations" icon={<StarIcon />} />
+        <BottomNavigationAction label="Keywords" value="/search-terms" icon={<SearchIcon />} />
       </BottomNavigation>
     </Paper>
   );
 };
 
-export default MobileNavigation; 
+export default MobileNavigation;

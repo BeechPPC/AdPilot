@@ -1,27 +1,15 @@
 import React from 'react';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
-  Box,
-  Button,
-  Menu,
-  MenuItem,
-  Avatar,
-  useTheme,
-  useMediaQuery,
-  FormControl,
-  Select,
-  Tooltip
+  AppBar, Toolbar, Typography, IconButton, Box,
+  Menu, MenuItem, Avatar, FormControl, Select, Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
-  AccountCircle
 } from '@mui/icons-material';
+import { useGoogleAds } from '../context/GoogleAdsContext';
+import { DATE_RANGE_OPTIONS } from '../utils/friendlyNames';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -31,14 +19,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const { connected, accounts, activeAccountId, selectAccount, dateRange, setDateRange } = useGoogleAds();
 
   return (
     <AppBar
@@ -51,66 +32,43 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode 
       }}
     >
       <Toolbar>
-        <IconButton
-          color="inherit"
-          aria-label="open drawer"
-          edge="start"
-          onClick={onMenuClick}
-          sx={{ mr: 2 }}
-        >
+        <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={onMenuClick} sx={{ mr: 2 }}>
           <MenuIcon />
         </IconButton>
 
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
-          sx={{ color: 'primary.main', fontWeight: 700, mr: 4 }}
-        >
+        <Typography variant="h6" noWrap component="div" sx={{ color: 'primary.main', fontWeight: 700, mr: 3 }}>
           AdPilot
         </Typography>
 
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 120,
-            mr: 2,
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: 'background.default',
-            },
-          }}
-        >
-          <Select
-            value="30"
-            displayEmpty
-            sx={{ height: 40 }}
-          >
-            <MenuItem value="7">Last 7 Days</MenuItem>
-            <MenuItem value="14">Last 14 Days</MenuItem>
-            <MenuItem value="30">Last 30 Days</MenuItem>
-          </Select>
-        </FormControl>
+        {connected && accounts.length > 0 && (
+          <FormControl size="small" sx={{ minWidth: 180, mr: 2, '& .MuiOutlinedInput-root': { backgroundColor: 'background.default' } }}>
+            <Select
+              value={activeAccountId || ''}
+              displayEmpty
+              sx={{ height: 36 }}
+              onChange={(e) => selectAccount(e.target.value as string)}
+            >
+              <MenuItem value="" disabled>Select Account</MenuItem>
+              {accounts.map((acct) => (
+                <MenuItem key={acct.id} value={acct.id}>{acct.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 200,
-            mr: 2,
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: 'background.default',
-            },
-          }}
-        >
-          <Select
-            value="all"
-            displayEmpty
-            sx={{ height: 40 }}
-          >
-            <MenuItem value="all">All Campaigns</MenuItem>
-            <MenuItem value="active">Active Campaigns</MenuItem>
-            <MenuItem value="paused">Paused Campaigns</MenuItem>
-          </Select>
-        </FormControl>
+        {connected && (
+          <FormControl size="small" sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { backgroundColor: 'background.default' } }}>
+            <Select
+              value={dateRange}
+              sx={{ height: 36 }}
+              onChange={(e) => setDateRange(e.target.value as string)}
+            >
+              {DATE_RANGE_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <Box sx={{ flexGrow: 1 }} />
 
@@ -121,22 +79,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode 
         </Tooltip>
 
         <IconButton
-          onClick={handleMenuClick}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
           size="small"
           sx={{ ml: 2 }}
-          aria-controls={Boolean(anchorEl) ? 'account-menu' : undefined}
-          aria-haspopup="true"
-          aria-expanded={Boolean(anchorEl) ? 'true' : undefined}
         >
           <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>JD</Avatar>
         </IconButton>
 
         <Menu
           anchorEl={anchorEl}
-          id="account-menu"
           open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          onClick={handleMenuClose}
+          onClose={() => setAnchorEl(null)}
+          onClick={() => setAnchorEl(null)}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
@@ -149,4 +103,4 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode 
   );
 };
 
-export default Header; 
+export default Header;
