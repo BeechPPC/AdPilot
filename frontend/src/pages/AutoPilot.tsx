@@ -12,14 +12,6 @@ import {
 import TierGate from '../components/TierGate';
 import { agentApi, AgentTask } from '../services/api';
 
-const statusColor: Record<string, 'default' | 'warning' | 'success' | 'error' | 'info'> = {
-  proposed: 'warning',
-  approved: 'info',
-  completed: 'success',
-  rejected: 'default',
-  failed: 'error',
-};
-
 const AutoPilot: React.FC = () => {
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -84,8 +76,6 @@ const AutoPilot: React.FC = () => {
 
   const proposed = tasks.filter(t => t.status === 'proposed');
   const completed = tasks.filter(t => t.status === 'completed');
-  const other = tasks.filter(t => t.status === 'rejected' || t.status === 'failed');
-
   return (
     <Box>
       <Breadcrumbs sx={{ mb: 3 }}>

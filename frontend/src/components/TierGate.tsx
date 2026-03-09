@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Paper, Button } from '@mui/material';
+import { Typography, Paper, Button } from '@mui/material';
 import { Lock as LockIcon } from '@mui/icons-material';
 import { useTier } from '../context/TierContext';
 
