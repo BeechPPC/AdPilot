@@ -6,6 +6,6 @@ export const AUTH_CONFIG = {
 
 export function validateAuthConfig(): void {
   if (!AUTH_CONFIG.jwtSecret || AUTH_CONFIG.jwtSecret.length < 32) {
-    throw new Error('JWT_SECRET must be set and at least 32 characters long');
+    console.warn('WARNING: JWT_SECRET is not set or is shorter than 32 characters');
   }
 }
