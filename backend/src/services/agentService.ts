@@ -5,7 +5,9 @@ import {
   addNegativeKeyword, setCampaignStatus, dismissRecommendation, applyRecommendation,
 } from './googleAdsApi';
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp')
+  : path.join(__dirname, '../../data');
 const TASKS_FILE = path.join(DATA_DIR, 'agent-tasks.json');
 
 export interface AgentTask {

@@ -11,12 +11,14 @@ interface TokenData {
   managerIds: string[];
 }
 
-const TOKEN_PATH = path.join(__dirname, '../../data/tokens.json');
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp')
+  : path.join(__dirname, '../../data');
+const TOKEN_PATH = path.join(DATA_DIR, 'tokens.json');
 
 function ensureDataDir(): void {
-  const dir = path.dirname(TOKEN_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
   }
 }
 

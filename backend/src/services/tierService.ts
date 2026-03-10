@@ -1,14 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.join(__dirname, '../../data');
-const TIER_FILE = path.join(DATA_DIR, 'tier.json');
-
 type Tier = 'pro' | 'advanced';
 
 interface TierData {
   tier: Tier;
 }
+
+// Use /tmp on serverless (read-only filesystem), local data dir otherwise
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp')
+  : path.join(__dirname, '../../data');
+const TIER_FILE = path.join(DATA_DIR, 'tier.json');
 
 function ensureDataDir(): void {
   if (!fs.existsSync(DATA_DIR)) {
