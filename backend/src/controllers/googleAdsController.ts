@@ -17,12 +17,41 @@ import {
   addNegativeKeyword,
 } from '../services/googleAdsApi';
 
+function isValidDate(dateStr: string): boolean {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (year < 2000) return false;
+
+  const today = new Date();
+  const date = new Date(year, month - 1, day);
+
+  // Check that the date components didn't overflow (e.g. Feb 30 becomes Mar 2)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return false;
+  }
+
+  // Must not be in the future
+  if (date > today) return false;
+
+  return true;
+}
+
 function getDateRange(req: Request): string {
-  // Custom date range via startDate/endDate query params
   const startDate = String(req.query.startDate ?? '');
   const endDate = String(req.query.endDate ?? '');
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (startDate && endDate && dateRegex.test(startDate) && dateRegex.test(endDate)) {
+
+  if (startDate && endDate) {
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+      throw new Error('Invalid date format or value');
+    }
+    if (startDate > endDate) {
+      throw new Error('startDate must be before or equal to endDate');
+    }
     return `BETWEEN '${startDate}' AND '${endDate}'`;
   }
 
@@ -37,8 +66,8 @@ export async function listAccounts(_req: Request, res: Response): Promise<void> 
     const activeId = getCustomerId();
     res.json({ customers, activeCustomerId: activeId });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to list accounts';
-    res.status(500).json({ error: message });
+    console.error('List accounts error:', error);
+    res.status(500).json({ error: 'Failed to list accounts' });
   }
 }
 
@@ -52,8 +81,8 @@ export async function selectAccount(req: Request, res: Response): Promise<void> 
     setCustomerId(customerId);
     res.json({ success: true, customerId });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to select account';
-    res.status(500).json({ error: message });
+    console.error('Select account error:', error);
+    res.status(500).json({ error: 'Failed to select account' });
   }
 }
 
@@ -62,8 +91,12 @@ export async function metrics(req: Request, res: Response): Promise<void> {
     const data = await getMetricsSummary(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch metrics';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Metrics error:', error);
+    res.status(500).json({ error: 'Failed to fetch metrics' });
   }
 }
 
@@ -72,8 +105,12 @@ export async function performance(req: Request, res: Response): Promise<void> {
     const data = await getPerformanceTimeSeries(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch performance data';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Performance error:', error);
+    res.status(500).json({ error: 'Failed to fetch performance data' });
   }
 }
 
@@ -82,8 +119,12 @@ export async function campaigns(req: Request, res: Response): Promise<void> {
     const data = await getCampaigns(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch campaigns';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Campaigns error:', error);
+    res.status(500).json({ error: 'Failed to fetch campaigns' });
   }
 }
 
@@ -92,8 +133,12 @@ export async function searchTerms(req: Request, res: Response): Promise<void> {
     const data = await getSearchTerms(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch search terms';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Search terms error:', error);
+    res.status(500).json({ error: 'Failed to fetch search terms' });
   }
 }
 
@@ -102,8 +147,8 @@ export async function recommendations(_req: Request, res: Response): Promise<voi
     const data = await getRecommendations();
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch recommendations';
-    res.status(500).json({ error: message });
+    console.error('Recommendations error:', error);
+    res.status(500).json({ error: 'Failed to fetch recommendations' });
   }
 }
 
@@ -112,8 +157,8 @@ export async function assets(_req: Request, res: Response): Promise<void> {
     const data = await getAssets();
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch assets';
-    res.status(500).json({ error: message });
+    console.error('Assets error:', error);
+    res.status(500).json({ error: 'Failed to fetch assets' });
   }
 }
 
@@ -122,8 +167,8 @@ export async function budgets(_req: Request, res: Response): Promise<void> {
     const data = await getBudgets();
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch budgets';
-    res.status(500).json({ error: message });
+    console.error('Budgets error:', error);
+    res.status(500).json({ error: 'Failed to fetch budgets' });
   }
 }
 
@@ -132,8 +177,12 @@ export async function auctionInsights(req: Request, res: Response): Promise<void
     const data = await getAuctionInsights(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch auction insights';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Auction insights error:', error);
+    res.status(500).json({ error: 'Failed to fetch auction insights' });
   }
 }
 
@@ -142,8 +191,12 @@ export async function healthScore(req: Request, res: Response): Promise<void> {
     const data = await getHealthScore(getDateRange(req));
     res.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to compute health score';
-    res.status(500).json({ error: message });
+    if (error instanceof Error && error.message.startsWith('Invalid date')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    console.error('Health score error:', error);
+    res.status(500).json({ error: 'Failed to compute health score' });
   }
 }
 
@@ -157,8 +210,8 @@ export async function applyRec(req: Request, res: Response): Promise<void> {
     await applyRecommendation(resourceName);
     res.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to apply recommendation';
-    res.status(500).json({ error: message });
+    console.error('Apply recommendation error:', error);
+    res.status(500).json({ error: 'Failed to apply recommendation' });
   }
 }
 
@@ -172,8 +225,8 @@ export async function dismissRec(req: Request, res: Response): Promise<void> {
     await dismissRecommendation(resourceName);
     res.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to dismiss recommendation';
-    res.status(500).json({ error: message });
+    console.error('Dismiss recommendation error:', error);
+    res.status(500).json({ error: 'Failed to dismiss recommendation' });
   }
 }
 
@@ -188,8 +241,8 @@ export async function updateCampaignStatus(req: Request, res: Response): Promise
     await setCampaignStatus(campaignId, status);
     res.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update campaign';
-    res.status(500).json({ error: message });
+    console.error('Update campaign status error:', error);
+    res.status(500).json({ error: 'Failed to update campaign' });
   }
 }
 
@@ -203,7 +256,7 @@ export async function excludeKeyword(req: Request, res: Response): Promise<void>
     await addNegativeKeyword(keyword, campaignId);
     res.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to exclude keyword';
-    res.status(500).json({ error: message });
+    console.error('Exclude keyword error:', error);
+    res.status(500).json({ error: 'Failed to exclude keyword' });
   }
 }

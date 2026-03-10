@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireJwt } from '../middleware/requireAuth';
 import {
   getAuthUrl,
   handleCallback,
@@ -8,9 +9,9 @@ import {
 
 const router = Router();
 
-router.get('/url', getAuthUrl);
-router.post('/callback', handleCallback);
-router.get('/status', getStatus);
-router.post('/disconnect', disconnect);
+router.get('/url', requireJwt, getAuthUrl);
+router.post('/callback', requireJwt, handleCallback);
+router.get('/status', requireJwt, getStatus);
+router.post('/disconnect', requireJwt, disconnect);
 
 export default router;

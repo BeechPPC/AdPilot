@@ -22,7 +22,6 @@ export async function chatHandler(req: Request, res: Response): Promise<void> {
     res.json({ response });
   } catch (err: unknown) {
     console.error('AI Chat error:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: `AI Chat failed: ${message}` });
+    res.status(500).json({ error: 'AI Chat failed' });
   }
 }

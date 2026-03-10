@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth';
+import { mutationLimiter } from '../middleware/rateLimiter';
 import {
   listAccounts,
   selectAccount,
@@ -35,10 +36,10 @@ router.get('/budgets', budgets);
 router.get('/auction-insights', auctionInsights);
 router.get('/health', healthScore);
 
-// Action endpoints
-router.post('/recommendations/apply', applyRec);
-router.post('/recommendations/dismiss', dismissRec);
-router.post('/campaigns/:campaignId/status', updateCampaignStatus);
-router.post('/keywords/exclude', excludeKeyword);
+// Action endpoints with mutation rate limiting
+router.post('/recommendations/apply', mutationLimiter, applyRec);
+router.post('/recommendations/dismiss', mutationLimiter, dismissRec);
+router.post('/campaigns/:campaignId/status', mutationLimiter, updateCampaignStatus);
+router.post('/keywords/exclude', mutationLimiter, excludeKeyword);
 
 export default router;
