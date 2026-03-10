@@ -15,10 +15,10 @@ const ColumnHelp: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const AuctionInsights: React.FC = () => {
-  const { connected, activeAccountId, dateRange } = useGoogleAds();
+  const { connected, activeAccountId, dateParam } = useGoogleAds();
   const { data, loading, error } = useApi(
-    () => googleAdsApi.auctionInsights(dateRange),
-    [activeAccountId, dateRange],
+    () => googleAdsApi.auctionInsights(dateParam),
+    [activeAccountId, dateParam],
   );
 
   if (!connected) {

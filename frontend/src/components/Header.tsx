@@ -9,7 +9,7 @@ import {
   Brightness7 as LightModeIcon,
 } from '@mui/icons-material';
 import { useGoogleAds } from '../context/GoogleAdsContext';
-import { DATE_RANGE_OPTIONS } from '../utils/friendlyNames';
+import DateRangePicker from './DateRangePicker';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -19,7 +19,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const { connected, accounts, activeAccountId, selectAccount, dateRange, setDateRange } = useGoogleAds();
+  const { connected, accounts, activeAccountId, selectAccount } = useGoogleAds();
 
   return (
     <AppBar
@@ -56,19 +56,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onThemeToggle, isDarkMode 
           </FormControl>
         )}
 
-        {connected && (
-          <FormControl size="small" sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { backgroundColor: 'background.default' } }}>
-            <Select
-              value={dateRange}
-              sx={{ height: 36 }}
-              onChange={(e) => setDateRange(e.target.value as string)}
-            >
-              {DATE_RANGE_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+        <DateRangePicker />
 
         <Box sx={{ flexGrow: 1 }} />
 

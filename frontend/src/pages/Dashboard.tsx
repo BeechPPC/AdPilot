@@ -8,7 +8,7 @@ import AlertsPanel from '../components/AlertsPanel';
 import CampaignsTable from '../components/CampaignsTable';
 import HealthScore from '../components/HealthScore';
 import { useGoogleAds } from '../context/GoogleAdsContext';
-import { googleAdsApi, HealthScore as HealthScoreData, PerformancePoint, Campaign, Recommendation } from '../services/api';
+import { googleAdsApi, HealthScore as HealthScoreData, PerformancePoint, Campaign, Recommendation, MetricsSummary } from '../services/api';
 import { METRIC_INFO } from '../utils/friendlyNames';
 
 interface Metric {
@@ -18,20 +18,46 @@ interface Metric {
   change: string;
   trend: 'positive' | 'negative';
   period: string;
+  currentValue?: number;
+  previousValue?: number;
 }
 
-function formatMetrics(health: HealthScoreData, dateLabel: string): Metric[] {
+function getRawValue(id: string, m: MetricsSummary): number {
+  const map: Record<string, number> = {
+    spend: m.spend, conversions: m.conversions, cpa: m.cpa, roas: m.roas,
+    impressions: m.impressions, clicks: m.clicks, ctr: m.ctr, cpc: m.cpc,
+  };
+  return map[id] ?? 0;
+}
+
+function formatMetrics(
+  health: HealthScoreData,
+  dateLabel: string,
+  prevMetrics?: MetricsSummary | null,
+): Metric[] {
   const d = health.metrics;
-  return [
-    { id: 'spend', title: METRIC_INFO.spend.label, value: `$${d.spend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, change: '-', trend: 'positive', period: dateLabel },
-    { id: 'conversions', title: METRIC_INFO.conversions.label, value: d.conversions.toLocaleString(), change: '-', trend: 'positive', period: dateLabel },
-    { id: 'cpa', title: METRIC_INFO.cpa.label, value: `$${d.cpa.toFixed(2)}`, change: '-', trend: 'positive', period: dateLabel },
-    { id: 'roas', title: METRIC_INFO.roas.label, value: `${d.roas.toFixed(1)}x`, change: '-', trend: 'positive', period: dateLabel },
-    { id: 'impressions', title: METRIC_INFO.impressions.label, value: d.impressions.toLocaleString(), change: '-', trend: 'positive', period: dateLabel },
-    { id: 'clicks', title: METRIC_INFO.clicks.label, value: d.clicks.toLocaleString(), change: '-', trend: 'positive', period: dateLabel },
-    { id: 'ctr', title: METRIC_INFO.ctr.label, value: `${d.ctr.toFixed(2)}%`, change: '-', trend: 'positive', period: dateLabel },
-    { id: 'cpc', title: METRIC_INFO.cpc.label, value: `$${d.cpc.toFixed(2)}`, change: '-', trend: 'positive', period: dateLabel },
-  ];
+  const ids = ['spend', 'conversions', 'cpa', 'roas', 'impressions', 'clicks', 'ctr', 'cpc'] as const;
+  const formatValue: Record<string, string> = {
+    spend: `$${d.spend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+    conversions: d.conversions.toLocaleString(),
+    cpa: `$${d.cpa.toFixed(2)}`,
+    roas: `${d.roas.toFixed(1)}x`,
+    impressions: d.impressions.toLocaleString(),
+    clicks: d.clicks.toLocaleString(),
+    ctr: `${d.ctr.toFixed(2)}%`,
+    cpc: `$${d.cpc.toFixed(2)}`,
+  };
+
+  return ids.map((id) => ({
+    id,
+    title: METRIC_INFO[id].label,
+    value: formatValue[id],
+    change: '-',
+    trend: 'positive' as const,
+    period: dateLabel,
+    currentValue: prevMetrics ? getRawValue(id, d) : undefined,
+    previousValue: prevMetrics ? getRawValue(id, prevMetrics) : undefined,
+  }));
 }
 
 const emptyMetrics: Metric[] = Object.entries(METRIC_INFO).map(([id, info]) => ({
@@ -39,7 +65,11 @@ const emptyMetrics: Metric[] = Object.entries(METRIC_INFO).map(([id, info]) => (
 }));
 
 const Dashboard: React.FC = () => {
-  const { connected, activeAccountId, dateRange } = useGoogleAds();
+  const {
+    connected, activeAccountId, dateRange,
+    customStartDate, customEndDate, dateParam,
+    compareEnabled, comparisonDateRange,
+  } = useGoogleAds();
   const [metrics, setMetrics] = useState<Metric[]>(emptyMetrics);
   const [healthData, setHealthData] = useState<HealthScoreData | null>(null);
   const [perfData, setPerfData] = useState<PerformancePoint[]>([]);
@@ -48,7 +78,9 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const dateLabel = { LAST_7_DAYS: 'Last 7 days', LAST_14_DAYS: 'Last 2 weeks', LAST_30_DAYS: 'Last 30 days', LAST_90_DAYS: 'Last 3 months', THIS_MONTH: 'This month', LAST_MONTH: 'Last month' }[dateRange] || dateRange;
+  const dateLabel = dateRange === 'CUSTOM' && customStartDate && customEndDate
+    ? `${customStartDate} – ${customEndDate}`
+    : { LAST_7_DAYS: 'Last 7 days', LAST_14_DAYS: 'Last 2 weeks', LAST_30_DAYS: 'Last 30 days', LAST_90_DAYS: 'Last 3 months', THIS_MONTH: 'This month', LAST_MONTH: 'Last month' }[dateRange] || dateRange;
 
   useEffect(() => {
     if (!connected || !activeAccountId) return;
@@ -57,16 +89,31 @@ const Dashboard: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    Promise.all([
-      googleAdsApi.health(dateRange).catch(() => null),
-      googleAdsApi.performance(dateRange).catch(() => null),
-      googleAdsApi.campaigns(dateRange).catch(() => null),
+    const fetches: Promise<unknown>[] = [
+      googleAdsApi.health(dateParam).catch(() => null),
+      googleAdsApi.performance(dateParam).catch(() => null),
+      googleAdsApi.campaigns(dateParam).catch(() => null),
       googleAdsApi.recommendations().catch(() => null),
-    ]).then(([h, p, c, r]) => {
+    ];
+
+    // Comparison fetch
+    const compParam = compareEnabled && comparisonDateRange
+      ? { startDate: comparisonDateRange.startDate, endDate: comparisonDateRange.endDate }
+      : null;
+    if (compParam) {
+      fetches.push(googleAdsApi.health(compParam).catch(() => null));
+    }
+
+    Promise.all(fetches).then((results) => {
       if (cancelled) return;
+      const [h, p, c, r, prevH] = results as [
+        HealthScoreData | null, PerformancePoint[] | null,
+        Campaign[] | null, Recommendation[] | null,
+        HealthScoreData | null | undefined,
+      ];
       if (h) {
         setHealthData(h);
-        setMetrics(formatMetrics(h, dateLabel));
+        setMetrics(formatMetrics(h, dateLabel, prevH?.metrics ? prevH.metrics as MetricsSummary : null));
       }
       if (p) setPerfData(p);
       if (c) setCampaignData(c);
@@ -78,7 +125,8 @@ const Dashboard: React.FC = () => {
     });
 
     return () => { cancelled = true; };
-  }, [connected, activeAccountId, dateRange, dateLabel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, activeAccountId, dateRange, customStartDate, customEndDate, compareEnabled, comparisonDateRange?.startDate, comparisonDateRange?.endDate]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;

@@ -8,10 +8,10 @@ import { googleAdsApi } from '../services/api';
 import { useGoogleAds } from '../context/GoogleAdsContext';
 
 const Performance: React.FC = () => {
-  const { connected, activeAccountId, dateRange } = useGoogleAds();
+  const { connected, activeAccountId, dateParam } = useGoogleAds();
   const { data, loading, error } = useApi(
-    () => googleAdsApi.performance(dateRange),
-    [activeAccountId, dateRange],
+    () => googleAdsApi.performance(dateParam),
+    [activeAccountId, dateParam],
   );
 
   if (!connected) {

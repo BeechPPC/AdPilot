@@ -189,4 +189,5 @@ export const DATE_RANGE_OPTIONS = [
   { value: 'LAST_90_DAYS', label: 'Last 3 months' },
   { value: 'THIS_MONTH', label: 'This month' },
   { value: 'LAST_MONTH', label: 'Last month' },
+  { value: 'CUSTOM', label: 'Custom range' },
 ];

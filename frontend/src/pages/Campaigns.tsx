@@ -12,10 +12,10 @@ import { CAMPAIGN_STATUS, CHANNEL_TYPE, METRIC_INFO } from '../utils/friendlyNam
 import MetricTooltip from '../components/MetricTooltip';
 
 const Campaigns: React.FC = () => {
-  const { connected, activeAccountId, dateRange } = useGoogleAds();
+  const { connected, activeAccountId, dateParam } = useGoogleAds();
   const { data, loading, error, refetch } = useApi(
-    () => googleAdsApi.campaigns(dateRange),
-    [activeAccountId, dateRange],
+    () => googleAdsApi.campaigns(dateParam),
+    [activeAccountId, dateParam],
   );
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 

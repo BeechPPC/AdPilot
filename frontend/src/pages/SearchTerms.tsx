@@ -12,10 +12,10 @@ import { SEARCH_TERM_STATUS } from '../utils/friendlyNames';
 import MetricTooltip from '../components/MetricTooltip';
 
 const SearchTerms: React.FC = () => {
-  const { connected, activeAccountId, dateRange } = useGoogleAds();
+  const { connected, activeAccountId, dateParam } = useGoogleAds();
   const { data, loading, error, refetch } = useApi(
-    () => googleAdsApi.searchTerms(dateRange),
-    [activeAccountId, dateRange],
+    () => googleAdsApi.searchTerms(dateParam),
+    [activeAccountId, dateParam],
   );
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 

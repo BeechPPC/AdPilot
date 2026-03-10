@@ -11,9 +11,34 @@ interface MetricCardProps {
   change: string;
   trend: 'positive' | 'negative';
   period: string;
+  previousValue?: number;
+  currentValue?: number;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ id, title, value, change, trend, period }) => {
+function formatPctChange(current: number, previous: number): { text: string; positive: boolean } {
+  if (previous === 0) {
+    return current > 0 ? { text: 'New', positive: true } : { text: '-', positive: true };
+  }
+  const pct = ((current - previous) / previous) * 100;
+  const sign = pct >= 0 ? '+' : '';
+  return { text: `${sign}${pct.toFixed(1)}%`, positive: pct >= 0 };
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ id, title, value, change, trend, period, previousValue, currentValue }) => {
+  // Use comparison data if available
+  const hasComparison = previousValue !== undefined && currentValue !== undefined;
+  let displayChange = change;
+  let displayTrend = trend;
+
+  if (hasComparison) {
+    const { text, positive } = formatPctChange(currentValue!, previousValue!);
+    displayChange = text;
+    // For cost metrics, down is good
+    const invertedMetrics = ['cpa', 'cpc', 'spend'];
+    const isInverted = invertedMetrics.includes(id ?? '');
+    displayTrend = isInverted ? (positive ? 'negative' : 'positive') : (positive ? 'positive' : 'negative');
+  }
+
   return (
     <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -25,20 +50,22 @@ const MetricCard: React.FC<MetricCardProps> = ({ id, title, value, change, trend
       <Typography variant="h4" component="div" gutterBottom sx={{ mt: 1 }}>
         {value}
       </Typography>
-      {change !== '-' && (
+      {displayChange !== '-' && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {trend === 'positive' ? (
+          {displayTrend === 'positive' ? (
             <TrendingUpIcon color="success" />
           ) : (
             <TrendingDownIcon color="error" />
           )}
-          <Typography variant="body2" color={trend === 'positive' ? 'success.main' : 'error.main'}>
-            {change}
+          <Typography variant="body2" color={displayTrend === 'positive' ? 'success.main' : 'error.main'}>
+            {displayChange}
           </Typography>
-          <Typography variant="caption" color="text.secondary">{period}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {hasComparison ? 'vs prev. period' : period}
+          </Typography>
         </Box>
       )}
-      {change === '-' && (
+      {displayChange === '-' && (
         <Typography variant="caption" color="text.secondary">{period}</Typography>
       )}
     </Paper>

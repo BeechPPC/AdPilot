@@ -18,6 +18,14 @@ import {
 } from '../services/googleAdsApi';
 
 function getDateRange(req: Request): string {
+  // Custom date range via startDate/endDate query params
+  const startDate = String(req.query.startDate ?? '');
+  const endDate = String(req.query.endDate ?? '');
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (startDate && endDate && dateRegex.test(startDate) && dateRegex.test(endDate)) {
+    return `BETWEEN '${startDate}' AND '${endDate}'`;
+  }
+
   const allowed = ['LAST_7_DAYS', 'LAST_14_DAYS', 'LAST_30_DAYS', 'LAST_90_DAYS', 'THIS_MONTH', 'LAST_MONTH'];
   const range = String(req.query.dateRange ?? 'LAST_30_DAYS');
   return allowed.includes(range) ? range : 'LAST_30_DAYS';

@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { createAppTheme } from './styles/theme';
 import MainLayout from './layouts/MainLayout';
 import { GoogleAdsProvider } from './context/GoogleAdsContext';
@@ -30,6 +32,7 @@ function App() {
   };
 
   return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
@@ -56,6 +59,7 @@ function App() {
         </TierProvider>
       </Router>
     </ThemeProvider>
+    </LocalizationProvider>
   );
 }
 

@@ -157,7 +157,21 @@ export interface AuctionInsight {
   searchImpressionShare: number;
 }
 
-function qs(dateRange?: string): string {
+interface DateParams {
+  dateRange?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+function qs(dateRangeOrParams?: string | DateParams): string {
+  if (!dateRangeOrParams) return '';
+  if (typeof dateRangeOrParams === 'string') {
+    return `?dateRange=${dateRangeOrParams}`;
+  }
+  const { dateRange, startDate, endDate } = dateRangeOrParams;
+  if (startDate && endDate) {
+    return `?startDate=${startDate}&endDate=${endDate}`;
+  }
   return dateRange ? `?dateRange=${dateRange}` : '';
 }
 
@@ -167,15 +181,15 @@ export const googleAdsApi = {
     method: 'POST',
     body: JSON.stringify({ customerId }),
   }),
-  metrics: (dateRange?: string) => request<MetricsSummary>(`/google-ads/metrics${qs(dateRange)}`),
-  performance: (dateRange?: string) => request<PerformancePoint[]>(`/google-ads/performance${qs(dateRange)}`),
-  campaigns: (dateRange?: string) => request<Campaign[]>(`/google-ads/campaigns${qs(dateRange)}`),
-  searchTerms: (dateRange?: string) => request<SearchTerm[]>(`/google-ads/search-terms${qs(dateRange)}`),
+  metrics: (dateRange?: string | DateParams) => request<MetricsSummary>(`/google-ads/metrics${qs(dateRange)}`),
+  performance: (dateRange?: string | DateParams) => request<PerformancePoint[]>(`/google-ads/performance${qs(dateRange)}`),
+  campaigns: (dateRange?: string | DateParams) => request<Campaign[]>(`/google-ads/campaigns${qs(dateRange)}`),
+  searchTerms: (dateRange?: string | DateParams) => request<SearchTerm[]>(`/google-ads/search-terms${qs(dateRange)}`),
   recommendations: () => request<Recommendation[]>('/google-ads/recommendations'),
   assets: () => request<Asset[]>('/google-ads/assets'),
   budgets: () => request<Budget[]>('/google-ads/budgets'),
-  auctionInsights: (dateRange?: string) => request<AuctionInsight[]>(`/google-ads/auction-insights${qs(dateRange)}`),
-  health: (dateRange?: string) => request<HealthScore>(`/google-ads/health${qs(dateRange)}`),
+  auctionInsights: (dateRange?: string | DateParams) => request<AuctionInsight[]>(`/google-ads/auction-insights${qs(dateRange)}`),
+  health: (dateRange?: string | DateParams) => request<HealthScore>(`/google-ads/health${qs(dateRange)}`),
   applyRecommendation: (resourceName: string) => request<{ success: boolean }>('/google-ads/recommendations/apply', {
     method: 'POST',
     body: JSON.stringify({ resourceName }),

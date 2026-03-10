@@ -82,6 +82,13 @@ export async function listAccessibleCustomers(): Promise<{ id: string; name: str
   return customers;
 }
 
+/** Build the WHERE date clause — supports both DURING presets and BETWEEN custom ranges */
+function dateClause(dateRange: string): string {
+  return dateRange.startsWith('BETWEEN')
+    ? `segments.date ${dateRange}`
+    : `segments.date DURING ${dateRange}`;
+}
+
 export async function getMetricsSummary(dateRange: string = 'LAST_30_DAYS') {
   const results = await executeGaql(`
     SELECT
@@ -92,7 +99,7 @@ export async function getMetricsSummary(dateRange: string = 'LAST_30_DAYS') {
       metrics.cost_per_conversion,
       metrics.conversions_value
     FROM customer
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateClause(dateRange)}
   `);
 
   let totalCost = 0, totalConversions = 0, totalImpressions = 0, totalClicks = 0, totalValue = 0;
@@ -133,7 +140,7 @@ export async function getPerformanceTimeSeries(dateRange: string = 'LAST_30_DAYS
       metrics.impressions,
       metrics.clicks
     FROM customer
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateClause(dateRange)}
     ORDER BY segments.date ASC
   `);
 
@@ -162,7 +169,7 @@ export async function getCampaigns(dateRange: string = 'LAST_30_DAYS') {
       metrics.impressions,
       metrics.clicks
     FROM campaign
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateClause(dateRange)}
       AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
   `);
@@ -199,7 +206,7 @@ export async function getSearchTerms(dateRange: string = 'LAST_30_DAYS') {
       metrics.cost_micros,
       metrics.conversions
     FROM search_term_view
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateClause(dateRange)}
     ORDER BY metrics.impressions DESC
     LIMIT 100
   `);
@@ -539,7 +546,7 @@ export async function getAuctionInsights(dateRange: string = 'LAST_30_DAYS') {
       metrics.top_impression_percentage,
       metrics.search_impression_share
     FROM campaign
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateClause(dateRange)}
       AND campaign.status = 'ENABLED'
       AND campaign.advertising_channel_type = 'SEARCH'
     ORDER BY metrics.cost_micros DESC
