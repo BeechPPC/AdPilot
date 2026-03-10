@@ -33,4 +33,13 @@ yarn-error.log*
 Thumbs.db
 
 # TypeScript
-*.tsbuildinfo 
+*.tsbuildinfo
+
+# Build artifacts
+backend/dist/
+
+# Vercel
+.vercel
+
+# Claude
+.claude/
