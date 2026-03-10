@@ -7,6 +7,8 @@ interface TokenData {
   refreshToken: string;
   expiresAt: number;
   customerId: string | null;
+  loginCustomerId: string | null;
+  managerIds: string[];
 }
 
 const TOKEN_PATH = path.join(__dirname, '../../data/tokens.json');
@@ -21,7 +23,8 @@ function ensureDataDir(): void {
 function loadTokens(): TokenData | null {
   try {
     if (fs.existsSync(TOKEN_PATH)) {
-      return JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'));
+      const raw = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'));
+      return { ...raw, managerIds: raw.managerIds ?? [] };
     }
   } catch {
     // Corrupted file — ignore
@@ -70,6 +73,8 @@ export async function exchangeCodeForTokens(code: string): Promise<void> {
     refreshToken: data.refresh_token,
     expiresAt: Date.now() + data.expires_in * 1000,
     customerId: tokenData?.customerId ?? null,
+    loginCustomerId: tokenData?.loginCustomerId ?? null,
+    managerIds: tokenData?.managerIds ?? [],
   };
   saveTokens(tokenData);
 }
@@ -124,9 +129,29 @@ export function getCustomerId(): string | null {
   return tokenData?.customerId ?? null;
 }
 
+export function getLoginCustomerId(): string | null {
+  return tokenData?.loginCustomerId ?? null;
+}
+
+export function getManagerIds(): string[] {
+  return tokenData?.managerIds ?? [];
+}
+
 export function setCustomerId(id: string): void {
   if (!tokenData) throw new Error('Not authenticated');
   tokenData.customerId = id;
+  saveTokens(tokenData);
+}
+
+export function setLoginCustomerId(id: string): void {
+  if (!tokenData) throw new Error('Not authenticated');
+  tokenData.loginCustomerId = id;
+  saveTokens(tokenData);
+}
+
+export function setManagerIds(ids: string[]): void {
+  if (!tokenData) throw new Error('Not authenticated');
+  tokenData.managerIds = ids;
   saveTokens(tokenData);
 }
 

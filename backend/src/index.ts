@@ -56,8 +56,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // Routes
-app.use('/api/auth', loginLimiter, adminAuthRoutes);
 app.use('/api/auth/google', googleAdsAuthRoutes);
+app.use('/api/auth', loginLimiter, adminAuthRoutes);
 app.use('/api/google-ads', googleAdsRoutes);
 app.use('/api/tier', tierRoutes);
 app.use('/api/ai', aiChatRoutes);

@@ -163,6 +163,7 @@ export interface Recommendation {
   impactImpressions: number;
   impactClicks: number;
   impactCost: number;
+  details: string;
 }
 
 export interface HealthScore {

@@ -1,8 +1,24 @@
 import { GOOGLE_ADS_CONFIG } from '../config/googleAds';
-import { getValidAccessToken, getCustomerId } from './googleAdsAuth';
+import {
+  getValidAccessToken, getCustomerId, getLoginCustomerId, setLoginCustomerId,
+  getManagerIds, setManagerIds,
+} from './googleAdsAuth';
 
 interface SearchStreamResponse {
   results: Record<string, unknown>[];
+}
+
+/** Build headers including login-customer-id when needed */
+function apiHeaders(accessToken: string, loginCid: string | null, cid: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'developer-token': GOOGLE_ADS_CONFIG.developerToken,
+    'Content-Type': 'application/json',
+  };
+  if (loginCid && loginCid !== cid) {
+    headers['login-customer-id'] = loginCid;
+  }
+  return headers;
 }
 
 export async function executeGaql(query: string, customerId?: string): Promise<Record<string, unknown>[]> {
@@ -10,19 +26,32 @@ export async function executeGaql(query: string, customerId?: string): Promise<R
   if (!cid) throw new Error('No customer ID selected');
 
   const accessToken = await getValidAccessToken();
+  const loginCid = getLoginCustomerId();
 
-  const response = await fetch(
-    `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/googleAds:searchStream`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
-    },
-  );
+  // Try with stored loginCustomerId first
+  const url = `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/googleAds:searchStream`;
+  let response = await fetch(url, {
+    method: 'POST',
+    headers: apiHeaders(accessToken, loginCid, cid),
+    body: JSON.stringify({ query }),
+  });
+
+  // If PERMISSION_DENIED, try each known MCC until one works
+  if (response.status === 403) {
+    const managerIds = getManagerIds().filter((id) => id !== loginCid);
+    for (const mccId of managerIds) {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: apiHeaders(accessToken, mccId, cid),
+        body: JSON.stringify({ query }),
+      });
+      if (response.status !== 403) {
+        // Found the right MCC — cache it for future calls
+        setLoginCustomerId(mccId);
+        break;
+      }
+    }
+  }
 
   if (!response.ok) {
     const err = await response.text();
@@ -33,11 +62,54 @@ export async function executeGaql(query: string, customerId?: string): Promise<R
   return batches.flatMap((b) => b.results ?? []);
 }
 
+async function fetchCustomerDetail(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId?: string,
+): Promise<{ id: string; name: string; manager: boolean } | null> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'developer-token': GOOGLE_ADS_CONFIG.developerToken,
+    'Content-Type': 'application/json',
+  };
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId;
+  }
+
+  const res = await fetch(
+    `${GOOGLE_ADS_CONFIG.endpoints.ads}/${customerId}/googleAds:searchStream`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query: 'SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1',
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`[fetchCustomerDetail] ${customerId} failed: ${res.status} ${errBody}`);
+    return null;
+  }
+
+  const batches: { results?: Record<string, unknown>[] }[] = await res.json();
+  const results = batches.flatMap((b) => b.results ?? []);
+  if (results.length === 0) return null;
+
+  const customer = results[0].customer as Record<string, unknown> | undefined;
+  return {
+    id: customerId,
+    name: String(customer?.descriptiveName || customerId),
+    manager: !!customer?.manager,
+  };
+}
+
 export async function listAccessibleCustomers(): Promise<{ id: string; name: string }[]> {
   const accessToken = await getValidAccessToken();
 
   const response = await fetch(
-    'https://googleads.googleapis.com/v23.1/customers:listAccessibleCustomers',
+    'https://googleads.googleapis.com/v23/customers:listAccessibleCustomers',
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -48,38 +120,66 @@ export async function listAccessibleCustomers(): Promise<{ id: string; name: str
 
   if (!response.ok) {
     const err = await response.text();
+    console.error('[listAccessibleCustomers] API error:', response.status, err);
     throw new Error(`Failed to list customers: ${err}`);
   }
 
   const data = await response.json();
   const resourceNames: string[] = data.resourceNames ?? [];
+  const customerIds = resourceNames.map((rn: string) => rn.replace('customers/', ''));
+  console.log('[listAccessibleCustomers] found IDs:', customerIds);
 
-  // Fetch descriptive names for each customer
-  const customers: { id: string; name: string }[] = [];
-  for (const rn of resourceNames) {
-    const id = rn.replace('customers/', '');
+  // Pass 1: fetch details for all accounts to identify managers vs regular
+  const managerIds: string[] = [];
+  const regularAccounts: { id: string; name: string }[] = [];
+  const failedIds: string[] = [];
+
+  for (const id of customerIds) {
     try {
-      const detail = await fetch(
-        `https://googleads.googleapis.com/v23.1/${rn}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-          },
-        },
-      );
-      if (detail.ok) {
-        const info = await detail.json();
-        customers.push({ id, name: info.descriptiveName || id });
+      const detail = await fetchCustomerDetail(accessToken, id);
+      if (detail) {
+        console.log(`[listAccessibleCustomers] ${id}: name="${detail.name}" manager=${detail.manager}`);
+        if (detail.manager) {
+          managerIds.push(id);
+        } else {
+          regularAccounts.push({ id: detail.id, name: detail.name });
+        }
       } else {
-        customers.push({ id, name: id });
+        console.log(`[listAccessibleCustomers] ${id}: detail fetch failed (pass 1)`);
+        failedIds.push(id);
       }
-    } catch {
-      customers.push({ id, name: id });
+    } catch (err) {
+      console.log(`[listAccessibleCustomers] ${id}: error in pass 1:`, err);
+      failedIds.push(id);
     }
   }
 
-  return customers;
+  // Pass 2: retry failed accounts using discovered MCC IDs as login-customer-id
+  for (const id of failedIds) {
+    for (const mccId of managerIds) {
+      try {
+        const detail = await fetchCustomerDetail(accessToken, id, mccId);
+        if (detail) {
+          console.log(`[listAccessibleCustomers] ${id} via MCC ${mccId}: name="${detail.name}" manager=${detail.manager}`);
+          if (!detail.manager) {
+            regularAccounts.push({ id: detail.id, name: detail.name });
+          }
+        }
+        break;
+      } catch {
+        // try next MCC
+      }
+    }
+  }
+
+  // Persist all MCC IDs so subsequent API calls can resolve the right one
+  if (managerIds.length > 0) {
+    setManagerIds(managerIds);
+    setLoginCustomerId(managerIds[0]);
+  }
+
+  console.log(`[listAccessibleCustomers] result: ${managerIds.length} MCCs filtered, ${regularAccounts.length} accounts returned`);
+  return regularAccounts;
 }
 
 /** Build the WHERE date clause — supports both DURING presets and BETWEEN custom ranges */
@@ -229,15 +329,244 @@ export async function getSearchTerms(dateRange: string = 'LAST_30_DAYS') {
   });
 }
 
+/** Convert micros (e.g. 1500000) to a dollar string ("1.50") */
+function formatMicros(micros: number | undefined | null): string {
+  return (Number(micros ?? 0) / 1_000_000).toFixed(2);
+}
+
+/** Helper: join non-empty strings */
+function joinParts(parts: string[], sep = ' | '): string {
+  return parts.filter(Boolean).join(sep);
+}
+
+/** Helper: extract headlines/descriptions text list from an Ad sub-object */
+function adTextList(ad: Record<string, unknown> | undefined, field: 'headlines' | 'descriptions'): string[] {
+  const rsa = ad?.responsiveSearchAd as Record<string, unknown> | undefined;
+  const items = (rsa?.[field] ?? ad?.[field]) as { text?: string }[] | undefined;
+  return items?.map((h) => String(h.text ?? '')).filter(Boolean) ?? [];
+}
+
+/** Extract a human-readable detail string from the type-specific sub-object */
+function extractRecommendationDetails(type: string, r: Record<string, unknown>): string {
+  try {
+    switch (type) {
+      case 'KEYWORD': {
+        const kw = r.keywordRecommendation as Record<string, unknown> | undefined;
+        const keyword = kw?.keyword as Record<string, unknown> | undefined;
+        if (keyword?.text) return `Suggested keyword: '${keyword.text}' (${String(keyword.matchType ?? 'BROAD').replace(/_/g, ' ').toLowerCase()})`;
+        return '';
+      }
+      case 'TEXT_AD': {
+        const ta = r.textAdRecommendation as Record<string, unknown> | undefined;
+        const ad = ta?.ad as Record<string, unknown> | undefined;
+        const parts: string[] = [];
+        if (ad?.headline) parts.push(`Headline: '${ad.headline}'`);
+        if (ad?.description1) parts.push(`Desc: '${ad.description1}'`);
+        return joinParts(parts, ' · ') || '';
+      }
+      case 'RESPONSIVE_SEARCH_AD': {
+        const rsa = r.responsiveSearchAdRecommendation as Record<string, unknown> | undefined;
+        const ad = rsa?.ad as Record<string, unknown> | undefined;
+        const headlines = adTextList(ad, 'headlines');
+        const descriptions = adTextList(ad, 'descriptions');
+        const parts: string[] = [];
+        if (headlines.length > 0) parts.push(`Headlines: ${headlines.map((h) => `'${h}'`).join(', ')}`);
+        if (descriptions.length > 0) parts.push(`Descriptions: ${descriptions.map((d) => `'${d}'`).join(', ')}`);
+        return joinParts(parts, '\n') || 'Add more ad variations';
+      }
+      case 'RESPONSIVE_SEARCH_AD_IMPROVE_AD_STRENGTH': {
+        const rsa = r.responsiveSearchAdImproveAdStrengthRecommendation as Record<string, unknown> | undefined;
+        const currentAd = rsa?.currentAd as Record<string, unknown> | undefined;
+        const recommendedAd = rsa?.recommendedAd as Record<string, unknown> | undefined;
+        const newHeadlines = adTextList(recommendedAd, 'headlines');
+        const newDescs = adTextList(recommendedAd, 'descriptions');
+        const currentHeadlines = adTextList(currentAd, 'headlines');
+        const parts: string[] = [];
+        if (newHeadlines.length > 0) {
+          const added = newHeadlines.filter((h) => !currentHeadlines.includes(h));
+          if (added.length > 0) parts.push(`Suggested headlines: ${added.map((h) => `'${h}'`).join(', ')}`);
+          else parts.push(`Headlines: ${newHeadlines.map((h) => `'${h}'`).join(', ')}`);
+        }
+        if (newDescs.length > 0) parts.push(`Descriptions: ${newDescs.map((d) => `'${d}'`).join(', ')}`);
+        return joinParts(parts, '\n') || '';
+      }
+      case 'RESPONSIVE_SEARCH_AD_ASSET': {
+        const rsa = r.responsiveSearchAdAssetRecommendation as Record<string, unknown> | undefined;
+        const recommended = rsa?.recommendedAssets as Record<string, unknown> | undefined;
+        const headlines = adTextList(recommended, 'headlines');
+        const descs = adTextList(recommended, 'descriptions');
+        const parts: string[] = [];
+        if (headlines.length > 0) parts.push(`Add headlines: ${headlines.map((h) => `'${h}'`).join(', ')}`);
+        if (descs.length > 0) parts.push(`Add descriptions: ${descs.map((d) => `'${d}'`).join(', ')}`);
+        return joinParts(parts, '\n') || '';
+      }
+      case 'TARGET_CPA_OPT_IN': {
+        const tc = r.targetCpaOptInRecommendation as Record<string, unknown> | undefined;
+        if (tc?.recommendedTargetCpaMicros) return `Recommended target CPA: $${formatMicros(tc.recommendedTargetCpaMicros as number)} per conversion`;
+        const options = tc?.options as { targetCpaMicros?: number; requiredCampaignBudgetAmountMicros?: number }[] | undefined;
+        if (options?.[0]?.targetCpaMicros) {
+          const parts = [`Target CPA: $${formatMicros(options[0].targetCpaMicros)}`];
+          if (options[0].requiredCampaignBudgetAmountMicros) parts.push(`Required budget: $${formatMicros(options[0].requiredCampaignBudgetAmountMicros)}/day`);
+          return joinParts(parts, ' · ');
+        }
+        return '';
+      }
+      case 'FORECASTING_SET_TARGET_CPA':
+      case 'SET_TARGET_CPA': {
+        const fc = (r.forecastingSetTargetCpaRecommendation ?? r.setTargetCpaRecommendation) as Record<string, unknown> | undefined;
+        if (fc?.recommendedTargetCpaMicros) return `Recommended target CPA: $${formatMicros(fc.recommendedTargetCpaMicros as number)} per conversion`;
+        return '';
+      }
+      case 'TARGET_ROAS_OPT_IN': {
+        const tr = r.targetRoasOptInRecommendation as Record<string, unknown> | undefined;
+        if (tr?.recommendedTargetRoas) return `Recommended target ROAS: ${Number(tr.recommendedTargetRoas).toFixed(1)}x`;
+        return '';
+      }
+      case 'FORECASTING_SET_TARGET_ROAS':
+      case 'SET_TARGET_ROAS': {
+        const fr = (r.forecastingSetTargetRoasRecommendation ?? r.setTargetRoasRecommendation) as Record<string, unknown> | undefined;
+        if (fr?.recommendedTargetRoas) return `Recommended target ROAS: ${Number(fr.recommendedTargetRoas).toFixed(1)}x`;
+        return '';
+      }
+      case 'MAXIMIZE_CONVERSIONS_OPT_IN': {
+        const mc = r.maximizeConversionsOptInRecommendation as Record<string, unknown> | undefined;
+        if (mc?.recommendedBudgetAmountMicros) return `Recommended budget: $${formatMicros(mc.recommendedBudgetAmountMicros as number)}/day`;
+        return '';
+      }
+      case 'MAXIMIZE_CLICKS_OPT_IN': {
+        const mc = r.maximizeClicksOptInRecommendation as Record<string, unknown> | undefined;
+        if (mc?.recommendedBudgetAmountMicros) return `Recommended budget: $${formatMicros(mc.recommendedBudgetAmountMicros as number)}/day`;
+        return '';
+      }
+      case 'MAXIMIZE_CONVERSION_VALUE_OPT_IN': {
+        const mc = r.maximizeConversionValueOptInRecommendation as Record<string, unknown> | undefined;
+        if (mc?.recommendedBudgetAmountMicros) return `Recommended budget: $${formatMicros(mc.recommendedBudgetAmountMicros as number)}/day`;
+        return '';
+      }
+      case 'RAISE_TARGET_CPA_BID_TOO_LOW': {
+        const rt = r.raiseTargetCpaBidTooLowRecommendation as Record<string, unknown> | undefined;
+        if (rt?.recommendedTargetMultiplier) return `Increase target CPA by ${Number(rt.recommendedTargetMultiplier).toFixed(1)}x to win more auctions`;
+        return '';
+      }
+      case 'RAISE_TARGET_CPA': {
+        const rt = r.raiseTargetCpaRecommendation as Record<string, unknown> | undefined;
+        const rtAdj = rt?.targetAdjustment as Record<string, unknown> | undefined;
+        if (rtAdj?.targetCpaMicros) return `Raise target CPA to $${formatMicros(rtAdj.targetCpaMicros as number)} per conversion`;
+        return '';
+      }
+      case 'LOWER_TARGET_ROAS': {
+        const lr = r.lowerTargetRoasRecommendation as Record<string, unknown> | undefined;
+        const lrAdj = lr?.targetAdjustment as Record<string, unknown> | undefined;
+        if (lrAdj?.targetRoas) return `Lower target ROAS to ${Number(lrAdj.targetRoas).toFixed(1)}x`;
+        return '';
+      }
+      case 'ENHANCED_CPC_OPT_IN':
+        return '';
+      case 'CAMPAIGN_BUDGET': {
+        const cb = r.campaignBudgetRecommendation as Record<string, unknown> | undefined;
+        const current = cb?.currentBudgetAmountMicros as number | undefined;
+        const recommended = cb?.recommendedBudgetAmountMicros as number | undefined;
+        if (current && recommended) return `Current: $${formatMicros(current)}/day → Recommended: $${formatMicros(recommended)}/day`;
+        return '';
+      }
+      case 'FORECASTING_CAMPAIGN_BUDGET':
+      case 'MARGINAL_ROI_CAMPAIGN_BUDGET': {
+        const fb = (r.forecastingCampaignBudgetRecommendation ?? r.marginalRoiCampaignBudgetRecommendation) as Record<string, unknown> | undefined;
+        const current = fb?.currentBudgetAmountMicros as number | undefined;
+        const recommended = fb?.recommendedBudgetAmountMicros as number | undefined;
+        if (current && recommended) return `Current: $${formatMicros(current)}/day → Recommended: $${formatMicros(recommended)}/day`;
+        return '';
+      }
+      case 'KEYWORD_MATCH_TYPE': {
+        const km = r.keywordMatchTypeRecommendation as Record<string, unknown> | undefined;
+        const keyword = km?.keyword as Record<string, unknown> | undefined;
+        if (keyword?.text && km?.recommendedMatchType) return `Change '${keyword.text}' from ${String(keyword.matchType ?? 'EXACT').toLowerCase()} to ${String(km.recommendedMatchType).toLowerCase()} match`;
+        return '';
+      }
+      case 'USE_BROAD_MATCH_KEYWORD': {
+        const bm = r.useBroadMatchKeywordRecommendation as Record<string, unknown> | undefined;
+        const keyword = bm?.keyword as Record<string, unknown> | undefined;
+        if (keyword?.text) return `Switch '${keyword.text}' to broad match`;
+        return '';
+      }
+      case 'MOVE_UNUSED_BUDGET': {
+        const mu = r.moveUnusedBudgetRecommendation as Record<string, unknown> | undefined;
+        if (mu?.excessCampaignBudgetMicros) return `Reallocate $${formatMicros(mu.excessCampaignBudgetMicros as number)} from underperforming campaign`;
+        return '';
+      }
+      case 'SITELINK_ASSET': {
+        const sl = r.sitelinkAssetRecommendation as Record<string, unknown> | undefined;
+        const recs = sl?.recommendedExtensions as { sitelinkText?: string; linkText?: string }[] | undefined;
+        if (recs?.[0]) return `Suggested sitelink: '${recs[0].sitelinkText ?? recs[0].linkText ?? ''}'`;
+        return '';
+      }
+      case 'SITELINK_EXTENSION': {
+        const sl = r.sitelinkExtensionRecommendation as Record<string, unknown> | undefined;
+        const recs = sl?.recommendedExtensions as { sitelinkText?: string }[] | undefined;
+        if (recs?.[0]?.sitelinkText) return `Suggested sitelink: '${recs[0].sitelinkText}'`;
+        return '';
+      }
+      case 'CALLOUT_ASSET': {
+        const co = r.calloutAssetRecommendation as Record<string, unknown> | undefined;
+        const recs = co?.recommendedExtensions as { calloutText?: string }[] | undefined;
+        if (recs?.length) return `Callouts: ${recs.map((c) => `'${c.calloutText}'`).join(', ')}`;
+        return '';
+      }
+      case 'CALLOUT_EXTENSION': {
+        const co = r.calloutExtensionRecommendation as Record<string, unknown> | undefined;
+        const recs = co?.recommendedExtensions as { calloutText?: string }[] | undefined;
+        if (recs?.length) return `Callouts: ${recs.map((c) => `'${c.calloutText}'`).join(', ')}`;
+        return '';
+      }
+      case 'CALL_ASSET':
+      case 'CALL_EXTENSION':
+      case 'PERFORMANCE_MAX_OPT_IN':
+      case 'SEARCH_PARTNERS_OPT_IN':
+      case 'OPTIMIZE_AD_ROTATION':
+      case 'DISPLAY_EXPANSION_OPT_IN':
+        return '';
+      default:
+        return '';
+    }
+  } catch {
+    return '';
+  }
+}
+
 export async function getRecommendations() {
   const results = await executeGaql(`
     SELECT
       recommendation.resource_name,
       recommendation.type,
-      recommendation.impact.base_metrics.impressions,
-      recommendation.impact.base_metrics.clicks,
-      recommendation.impact.base_metrics.cost_micros,
-      recommendation.campaign
+      recommendation.impact,
+      recommendation.campaign,
+      recommendation.campaign_budget_recommendation,
+      recommendation.keyword_recommendation,
+      recommendation.text_ad_recommendation,
+      recommendation.responsive_search_ad_recommendation,
+      recommendation.responsive_search_ad_improve_ad_strength_recommendation,
+      recommendation.responsive_search_ad_asset_recommendation,
+      recommendation.target_cpa_opt_in_recommendation,
+      recommendation.forecasting_set_target_cpa_recommendation,
+      recommendation.set_target_cpa_recommendation,
+      recommendation.target_roas_opt_in_recommendation,
+      recommendation.forecasting_set_target_roas_recommendation,
+      recommendation.set_target_roas_recommendation,
+      recommendation.maximize_conversions_opt_in_recommendation,
+      recommendation.maximize_clicks_opt_in_recommendation,
+      recommendation.maximize_conversion_value_opt_in_recommendation,
+      recommendation.enhanced_cpc_opt_in_recommendation,
+      recommendation.keyword_match_type_recommendation,
+      recommendation.use_broad_match_keyword_recommendation,
+      recommendation.move_unused_budget_recommendation,
+      recommendation.forecasting_campaign_budget_recommendation,
+      recommendation.marginal_roi_campaign_budget_recommendation,
+      recommendation.sitelink_asset_recommendation,
+      recommendation.callout_asset_recommendation,
+      recommendation.call_asset_recommendation,
+      recommendation.raise_target_cpa_bid_too_low_recommendation,
+      recommendation.raise_target_cpa_recommendation,
+      recommendation.lower_target_roas_recommendation
     FROM recommendation
   `);
 
@@ -245,13 +574,16 @@ export async function getRecommendations() {
     const r = row.recommendation as Record<string, unknown> | undefined;
     const impact = r?.impact as Record<string, unknown> | undefined;
     const baseMetrics = impact?.baseMetrics as Record<string, unknown> | undefined;
+    const potentialMetrics = impact?.potentialMetrics as Record<string, unknown> | undefined;
+    const type = String(r?.type ?? '');
     return {
       resourceName: String(r?.resourceName ?? ''),
-      type: String(r?.type ?? ''),
+      type,
       campaign: String(r?.campaign ?? ''),
-      impactImpressions: Number(baseMetrics?.impressions ?? 0),
-      impactClicks: Number(baseMetrics?.clicks ?? 0),
-      impactCost: Number(baseMetrics?.costMicros ?? 0) / 1_000_000,
+      impactImpressions: Number(potentialMetrics?.impressions ?? baseMetrics?.impressions ?? 0),
+      impactClicks: Number(potentialMetrics?.clicks ?? baseMetrics?.clicks ?? 0),
+      impactCost: Number(potentialMetrics?.costMicros ?? baseMetrics?.costMicros ?? 0) / 1_000_000,
+      details: r ? extractRecommendationDetails(type, r) : '',
     };
   });
 }
@@ -308,20 +640,22 @@ export async function getBudgets() {
 
 // ─── Mutations ──────────────────────────────────────────────
 
+async function mutationHeaders(): Promise<Record<string, string>> {
+  const accessToken = await getValidAccessToken();
+  const loginCid = getLoginCustomerId();
+  const cid = getCustomerId();
+  return apiHeaders(accessToken, loginCid, cid);
+}
+
 export async function applyRecommendation(resourceName: string): Promise<void> {
   const cid = getCustomerId();
   if (!cid) throw new Error('No customer ID selected');
-  const accessToken = await getValidAccessToken();
 
   const response = await fetch(
     `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/recommendations:apply`,
     {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-        'Content-Type': 'application/json',
-      },
+      headers: await mutationHeaders(),
       body: JSON.stringify({
         operations: [{ resourceName }],
       }),
@@ -337,17 +671,12 @@ export async function applyRecommendation(resourceName: string): Promise<void> {
 export async function dismissRecommendation(resourceName: string): Promise<void> {
   const cid = getCustomerId();
   if (!cid) throw new Error('No customer ID selected');
-  const accessToken = await getValidAccessToken();
 
   const response = await fetch(
     `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/recommendations:dismiss`,
     {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-        'Content-Type': 'application/json',
-      },
+      headers: await mutationHeaders(),
       body: JSON.stringify({
         operations: [{ resourceName }],
       }),
@@ -363,18 +692,13 @@ export async function dismissRecommendation(resourceName: string): Promise<void>
 export async function setCampaignStatus(campaignId: string, status: 'ENABLED' | 'PAUSED'): Promise<void> {
   const cid = getCustomerId();
   if (!cid) throw new Error('No customer ID selected');
-  const accessToken = await getValidAccessToken();
 
   const resourceName = `customers/${cid}/campaigns/${campaignId}`;
   const response = await fetch(
     `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/campaigns:mutate`,
     {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-        'Content-Type': 'application/json',
-      },
+      headers: await mutationHeaders(),
       body: JSON.stringify({
         operations: [{
           updateMask: 'status',
@@ -393,19 +717,15 @@ export async function setCampaignStatus(campaignId: string, status: 'ENABLED' | 
 export async function addNegativeKeyword(keyword: string, campaignId?: string): Promise<void> {
   const cid = getCustomerId();
   if (!cid) throw new Error('No customer ID selected');
-  const accessToken = await getValidAccessToken();
+
+  const headers = await mutationHeaders();
 
   if (campaignId) {
-    // Campaign-level negative keyword
     const response = await fetch(
       `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/campaignCriteria:mutate`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           operations: [{
             create: {
@@ -423,16 +743,11 @@ export async function addNegativeKeyword(keyword: string, campaignId?: string): 
       throw new Error(`Failed to add negative keyword: ${err}`);
     }
   } else {
-    // Account-level negative keyword
     const response = await fetch(
       `${GOOGLE_ADS_CONFIG.endpoints.ads}/${cid}/customerNegativeCriteria:mutate`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'developer-token': GOOGLE_ADS_CONFIG.developerToken,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           operations: [{
             create: {

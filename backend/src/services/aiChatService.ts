@@ -2,7 +2,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getMetricsSummary, getCampaigns, getRecommendations, getHealthScore } from './googleAdsApi';
 import { isAuthenticated } from './googleAdsAuth';
 
-const client = new Anthropic();
+let _client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!_client) {
+    _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return _client;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -85,7 +91,7 @@ Guidelines:
 - If data seems concerning, be honest but encouraging
 - Reference specific numbers from the account data when relevant`;
 
-  const response = await client.messages.create({
+  const response = await getClient().messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
     system: systemPrompt,

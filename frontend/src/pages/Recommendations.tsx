@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   Box, Typography, Breadcrumbs, Link, Paper, CircularProgress, Alert,
-  List, ListItem, ListItemText, Divider, Button, Snackbar, Chip,
+  Button, Snackbar, Chip, Tooltip, IconButton, Grid,
 } from '@mui/material';
-import { CheckCircle as ApplyIcon, Close as DismissIcon } from '@mui/icons-material';
+import { CheckCircle as ApplyIcon, Close as DismissIcon, HelpOutline as HelpIcon } from '@mui/icons-material';
 import { useApi } from '../hooks/useApi';
 import { googleAdsApi } from '../services/api';
 import { useGoogleAds } from '../context/GoogleAdsContext';
@@ -68,60 +68,109 @@ const Recommendations: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {data && data.length > 0 && (
-        <Paper>
-          <List>
-            {data.map((rec, i) => {
-              const friendly = getFriendlyRecommendation(rec.type);
-              const isProcessing = processing === rec.resourceName;
-              return (
-                <React.Fragment key={i}>
-                  {i > 0 && <Divider />}
-                  <ListItem
-                    sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 2 }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-                      <Chip label={friendly.label} size="small" color="primary" />
-                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                        {rec.campaign.split('/').pop()}
-                      </Typography>
-                    </Box>
-                    <ListItemText
-                      primary={friendly.description}
-                      secondary={
-                        rec.impactClicks > 0 || rec.impactImpressions > 0
-                          ? `Potential uplift: +${rec.impactClicks} clicks, +${rec.impactImpressions.toLocaleString()} views`
-                          : undefined
+        <Grid container spacing={3}>
+          {data.map((rec, i) => {
+            const friendly = getFriendlyRecommendation(rec.type);
+            const isProcessing = processing === rec.resourceName;
+            const impactParts: string[] = [];
+            if (rec.impactClicks > 0 || rec.impactImpressions > 0) {
+              impactParts.push(`+${rec.impactClicks} clicks`);
+              impactParts.push(`+${rec.impactImpressions.toLocaleString()} views`);
+            }
+            if (rec.impactCost > 0) {
+              impactParts.push(`+$${rec.impactCost.toFixed(2)} cost`);
+            }
+
+            return (
+              <Grid item xs={12} sm={6} md={4} key={i}>
+                <Paper
+                  sx={{
+                    p: 3,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'box-shadow 0.2s ease',
+                    '&:hover': { boxShadow: 4 },
+                  }}
+                >
+                  {/* Header: chip + help icon */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <Chip label={friendly.label} size="small" color="primary" />
+                    <Tooltip
+                      title={
+                        <Box sx={{ p: 0.5, maxWidth: 250 }}>
+                          <Typography variant="body2">{friendly.tooltip}</Typography>
+                        </Box>
                       }
-                      primaryTypographyProps={{ variant: 'body1' }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="primary"
-                        startIcon={<ApplyIcon />}
-                        onClick={() => handleApply(rec.resourceName)}
-                        disabled={isProcessing}
-                      >
-                        Apply
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="inherit"
-                        startIcon={<DismissIcon />}
-                        onClick={() => handleDismiss(rec.resourceName)}
-                        disabled={isProcessing}
-                      >
-                        Dismiss
-                      </Button>
+                      arrow
+                      placement="top"
+                    >
+                      <IconButton size="small" sx={{ p: 0.25, opacity: 0.5 }}>
+                        <HelpIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+
+                  {/* Description */}
+                  <Typography variant="body1" sx={{ mb: 1 }}>
+                    {friendly.description}
+                  </Typography>
+
+                  {/* Type-specific details */}
+                  {rec.details && (
+                    <Box sx={{ mb: 1.5, px: 1.5, py: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      {rec.details.split('\n').map((line, idx) => (
+                        <Typography key={idx} variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                          {line}
+                        </Typography>
+                      ))}
                     </Box>
-                  </ListItem>
-                </React.Fragment>
-              );
-            })}
-          </List>
-        </Paper>
+                  )}
+
+                  {/* Spacer pushes footer to bottom */}
+                  <Box sx={{ flex: 1 }} />
+
+                  {/* Impact metrics */}
+                  {impactParts.length > 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                      Potential uplift: {impactParts.join(' · ')}
+                    </Typography>
+                  )}
+
+                  {/* Campaign ID */}
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block', opacity: 0.7 }}>
+                    Campaign {rec.campaign.split('/').pop()}
+                  </Typography>
+
+                  {/* Action buttons */}
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      startIcon={<ApplyIcon />}
+                      onClick={() => handleApply(rec.resourceName)}
+                      disabled={isProcessing}
+                      sx={{ flex: 1 }}
+                    >
+                      Apply
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="inherit"
+                      startIcon={<DismissIcon />}
+                      onClick={() => handleDismiss(rec.resourceName)}
+                      disabled={isProcessing}
+                    >
+                      Dismiss
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
       )}
 
       {data && data.length === 0 && (

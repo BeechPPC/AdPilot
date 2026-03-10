@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { googleAdsAuth } from '../services/googleAdsAuth';
+import { authApi } from '../services/api';
 import { useGoogleAds } from '../context/GoogleAdsContext';
 
 interface GoogleAdsConnectProps {
@@ -14,8 +14,11 @@ const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect
   const { connected, loading: ctxLoading, refresh, disconnect } = useGoogleAds();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const callbackHandled = useRef(false);
 
   useEffect(() => {
+    if (callbackHandled.current) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const oauthError = urlParams.get('error');
@@ -26,6 +29,9 @@ const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect
     }
 
     if (code) {
+      callbackHandled.current = true;
+      // Remove code from URL immediately to prevent reuse on re-renders
+      window.history.replaceState({}, document.title, window.location.pathname);
       handleOAuthCallback(code);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,7 +40,7 @@ const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect
   const handleOAuthCallback = async (code: string) => {
     setLoading(true);
     try {
-      await googleAdsAuth.handleCallback(code);
+      await authApi.callback(code);
       await refresh();
       if (onboardAfterConnect) {
         navigate('/welcome');
@@ -48,9 +54,14 @@ const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect
     }
   };
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     setError(null);
-    googleAdsAuth.initiateAuth();
+    try {
+      const { url } = await authApi.getUrl();
+      window.location.href = url;
+    } catch {
+      setError('Failed to start Google Ads authorization. Please try again.');
+    }
   };
 
   const handleDisconnect = async () => {
