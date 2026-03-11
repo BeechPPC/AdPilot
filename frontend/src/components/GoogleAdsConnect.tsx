@@ -4,12 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { useGoogleAds } from '../context/GoogleAdsContext';
 
-interface GoogleAdsConnectProps {
-  /** If true, redirect to onboarding after successful callback */
-  onboardAfterConnect?: boolean;
-}
-
-const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect }) => {
+const GoogleAdsConnect: React.FC = () => {
   const navigate = useNavigate();
   const { connected, loading: ctxLoading, refresh, disconnect } = useGoogleAds();
   const [loading, setLoading] = useState(false);
@@ -42,11 +37,7 @@ const GoogleAdsConnect: React.FC<GoogleAdsConnectProps> = ({ onboardAfterConnect
     try {
       await authApi.callback(code);
       await refresh();
-      if (onboardAfterConnect) {
-        navigate('/welcome');
-      } else {
-        window.history.replaceState({}, document.title, '/');
-      }
+      navigate('/');
     } catch {
       setError('Failed to connect to Google Ads. Please try again.');
     } finally {

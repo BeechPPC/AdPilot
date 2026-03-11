@@ -11,10 +11,7 @@
     "build": "cd backend && npm run build && cd ../frontend && npm run build",
     "test": "cd frontend && npm test"
   },
-  "dependencies": {
-    "@types/react-beautiful-dnd": "^13.1.8",
-    "react-beautiful-dnd": "^13.1.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "concurrently": "^9.2.1"
   }

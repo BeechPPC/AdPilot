@@ -2,49 +2,34 @@ import React, { useState, useMemo } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { createAppTheme } from './styles/theme';
-import MainLayout from './layouts/MainLayout';
+import ChatLayout from './layouts/ChatLayout';
 import { GoogleAdsProvider } from './context/GoogleAdsContext';
-import { TierProvider } from './context/TierContext';
-import Dashboard from './pages/Dashboard';
-import Campaigns from './pages/Campaigns';
-import Performance from './pages/Performance';
-import SearchTerms from './pages/SearchTerms';
-import Assets from './pages/Assets';
-import Recommendations from './pages/Recommendations';
-import AuctionInsights from './pages/AuctionInsights';
-import BudgetIntelligence from './pages/BudgetIntelligence';
-import AiChat from './pages/AiChat';
-import AutoPilot from './pages/AutoPilot';
+import { ChatProvider } from './context/ChatContext';
+import Chat from './pages/Chat';
 import Settings from './pages/Settings';
-import Onboarding from './pages/Onboarding';
-import GoogleAdsConnect from './components/GoogleAdsConnect';
 import Login from './pages/Login';
 import { hasToken } from './services/api';
+import { loadTheme, saveTheme } from './services/storage';
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const location = useLocation();
-
   if (!hasToken()) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
   return children;
 }
 
 function App() {
-  const [mode, setMode] = useState<'light' | 'dark'>('light');
-
+  const [mode, setMode] = useState<'light' | 'dark'>(loadTheme);
   const theme = useMemo(() => createAppTheme(mode), [mode]);
-
-  const toggleTheme = () => {
-    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
-  };
+  const toggleTheme = () => setMode(prev => {
+    const next = prev === 'light' ? 'dark' : 'light';
+    saveTheme(next);
+    return next;
+  });
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
@@ -52,33 +37,23 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={
             <RequireAuth>
-              <TierProvider>
-                <GoogleAdsProvider>
-                  <MainLayout onThemeToggle={toggleTheme} isDarkMode={mode === 'dark'}>
+              <GoogleAdsProvider>
+                <ChatProvider>
+                  <ChatLayout onThemeToggle={toggleTheme} isDarkMode={mode === 'dark'}>
                     <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/oauth2callback" element={<GoogleAdsConnect onboardAfterConnect />} />
-                      <Route path="/welcome" element={<Onboarding />} />
-                      <Route path="/campaigns" element={<Campaigns />} />
-                      <Route path="/performance" element={<Performance />} />
-                      <Route path="/search-terms" element={<SearchTerms />} />
-                      <Route path="/assets" element={<Assets />} />
-                      <Route path="/recommendations" element={<Recommendations />} />
-                      <Route path="/auction-insights" element={<AuctionInsights />} />
-                      <Route path="/budget" element={<BudgetIntelligence />} />
-                      <Route path="/ai-chat" element={<AiChat />} />
-                      <Route path="/autopilot" element={<AutoPilot />} />
+                      <Route path="/" element={<Chat />} />
+                      <Route path="/oauth2callback" element={<Chat />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
-                  </MainLayout>
-                </GoogleAdsProvider>
-              </TierProvider>
+                  </ChatLayout>
+                </ChatProvider>
+              </GoogleAdsProvider>
             </RequireAuth>
           } />
         </Routes>
       </Router>
     </ThemeProvider>
-    </LocalizationProvider>
   );
 }
 

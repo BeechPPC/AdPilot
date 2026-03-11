@@ -17,6 +17,8 @@ import {
   dismissRec,
   updateCampaignStatus,
   excludeKeyword,
+  getSettings,
+  updateSettings,
 } from '../controllers/googleAdsController';
 
 const router = Router();
@@ -35,6 +37,8 @@ router.get('/assets', assets);
 router.get('/budgets', budgets);
 router.get('/auction-insights', auctionInsights);
 router.get('/health', healthScore);
+router.get('/settings', getSettings);
+router.post('/settings', updateSettings);
 
 // Action endpoints with mutation rate limiting
 router.post('/recommendations/apply', mutationLimiter, applyRec);

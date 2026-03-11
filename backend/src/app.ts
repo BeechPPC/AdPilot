@@ -7,9 +7,7 @@ import { globalLimiter, loginLimiter } from './middleware/rateLimiter';
 import { validateAuthConfig } from './config/auth';
 import googleAdsAuthRoutes from './routes/googleAdsAuth';
 import googleAdsRoutes from './routes/googleAds';
-import tierRoutes from './routes/tier';
 import aiChatRoutes from './routes/aiChat';
-import agentRoutes from './routes/agent';
 import adminAuthRoutes from './routes/adminAuth';
 
 // Validate auth configuration (warns instead of crashing)
@@ -55,9 +53,7 @@ app.use(requestLogger);
 app.use('/api/auth/google', googleAdsAuthRoutes);
 app.use('/api/auth', loginLimiter, adminAuthRoutes);
 app.use('/api/google-ads', googleAdsRoutes);
-app.use('/api/tier', tierRoutes);
 app.use('/api/ai', aiChatRoutes);
-app.use('/api/agent', agentRoutes);
 
 // Error handling
 app.use(errorHandler);

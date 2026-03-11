@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getCustomerId, setCustomerId } from '../services/googleAdsAuth';
+import { getAccountSettings, saveAccountSettings } from '../services/accountSettingsService';
 import {
   listAccessibleCustomers,
   getMetricsSummary,
@@ -243,6 +244,26 @@ export async function updateCampaignStatus(req: Request, res: Response): Promise
   } catch (error: unknown) {
     console.error('Update campaign status error:', error);
     res.status(500).json({ error: 'Failed to update campaign' });
+  }
+}
+
+export async function getSettings(_req: Request, res: Response): Promise<void> {
+  try {
+    const settings = getAccountSettings();
+    res.json(settings || {});
+  } catch (error: unknown) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+}
+
+export async function updateSettings(req: Request, res: Response): Promise<void> {
+  try {
+    saveAccountSettings(req.body);
+    res.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Update settings error:', error);
+    res.status(500).json({ error: 'Failed to save settings' });
   }
 }
 
