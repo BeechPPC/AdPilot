@@ -81,7 +81,7 @@ const SectionCard: React.FC<SectionCardProps> = ({ icon, title, tooltip, childre
 );
 
 const Settings: React.FC = () => {
-  const { connected, accounts, activeAccountId, refresh, disconnect } = useGoogleAds();
+  const { connected, accounts, activeAccountId, disconnect } = useGoogleAds();
   const navigate = useNavigate();
 
   const [settings, setSettings] = useState<AccountSettings>({});

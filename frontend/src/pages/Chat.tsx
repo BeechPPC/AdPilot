@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Box, Typography, TextField, IconButton, Paper, Button,
   Alert, Select, MenuItem,
@@ -52,7 +52,7 @@ const Chat: React.FC = () => {
   const { connected, loading: adsLoading, accounts, activeAccountId, selectAccount, refresh } = useGoogleAds();
   const { activeConversation, createConversation, updateMessages } = useChat();
 
-  const messages = activeConversation?.messages || [];
+  const messages = useMemo(() => activeConversation?.messages || [], [activeConversation?.messages]);
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
